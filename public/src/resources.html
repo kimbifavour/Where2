@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Resources · Where 2</title>
+  <link rel="stylesheet" href="/css/resources.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header id="site-header" class="site-header">
+    <button class="nav-toggle" id="navToggle" type="button" aria-controls="site-nav" aria-expanded="false">
+      Menu
+    </button>
+  </header>
+  <div class="app">
+    <nav id="site-nav" class="site-nav" aria-label="Main"></nav>
+    <main id="main" class="main" tabindex="-1">
+      <div class="page-head">
+        <h1>Searchable campus resources</h1>
+        <p>Find study areas, computer labs, printers and cafeterias. Click a building on the map to filter.</p>
+      </div>
+
+      <section class="map-layout" aria-label="Interactive campus map">
+        <div class="panel">
+          <h2>Campus map</h2>
+
+          <ul class="map-legend" aria-label="Map colors">
+            <li class="fav"><i></i>Mostly favorable</li>
+            <li class="mod"><i></i>Moderate</li>
+            <li class="unf"><i></i>Unfavorable</li>
+            <li class="unk"><i></i>Unknown</li>
+          </ul>
+        </div>
+        <div class="panel building-panel" id="buildingPanel" aria-live="polite"></div>
+      </section>
+
+      <form class="filters" id="filters" role="search" autocomplete="off">
+        <div class="field">
+          <label for="q">Search by name</label>
+          <input id="q" type="search" placeholder="e.g. library" maxlength="100">
+        </div>
+        <div class="field">
+          <label for="category">Category</label>
+          <select id="category"><option value="">All categories</option></select>
+        </div>
+      </form>
+
+      <div id="message"></div>
+      <p class="small muted" id="count" aria-live="polite"></p>
+      <div id="list" class="grid cards"></div>
+    </main>
+  </div>
+  <script type="module" src="/js/resources.js"></script>
+  <script>
+    const navToggle = document.getElementById("navToggle");
+    const siteNav = document.getElementById("site-nav");
+    const mobileNav = window.matchMedia("(max-width: 800px)");
+
+    function setMenuOpen(isOpen) {
+      siteNav.classList.toggle("open", isOpen);
+      navToggle.setAttribute("aria-expanded", String(isOpen));
+    }
+
+    navToggle.addEventListener("click", () => {
+      setMenuOpen(navToggle.getAttribute("aria-expanded") !== "true");
+    });
+
+    siteNav.addEventListener("click", (event) => {
+      if (mobileNav.matches && event.target instanceof Element && event.target.closest("a")) {
+        setMenuOpen(false);
+      }
+    });
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape" && mobileNav.matches) {
+        setMenuOpen(false);
+        navToggle.focus();
+      }
+    });
+
+    mobileNav.addEventListener("change", (event) => {
+      if (!event.matches) setMenuOpen(false);
+    });
+
+    document.body.classList.add("nav-enhanced");
+  </script>
+</body>
+</html>
