@@ -4,6 +4,13 @@ const { query } = require('../db/database');
 
 const router = express.Router();
 
+function redirectWithError(req, res, errorCode) {
+  if (req.accepts('html')) {
+    return res.redirect(`/login?error=${encodeURIComponent(errorCode)}`);
+  }
+  return null;
+}
+
 function ensureSessionUser(req, res, next) {
   if (!req.session || !req.session.user) {
     return res.status(401).json({ ok: false, message: 'Unauthorized' });
@@ -20,15 +27,20 @@ router.get('/me', (req, res) => {
 });
 
 router.post('/register', async (req, res) => {
-  const name = (req.body.name || '').trim();
-  const email = (req.body.email || '').trim().toLowerCase();
-  const password = String(req.body.password || '').trim();
+  const body = req.body || {};
+  const name = String(body.name || '').trim();
+  const email = String(body.email || '').trim().toLowerCase();
+  const password = String(body.password || '').trim();
 
   if (!name || !email || !password) {
+    const redirect = redirectWithError(req, res, 'missing-registration-fields');
+    if (redirect) return redirect;
     return res.status(400).json({ ok: false, message: 'Name, email, and password are required.' });
   }
 
   if (password.length < 6) {
+    const redirect = redirectWithError(req, res, 'password-too-short');
+    if (redirect) return redirect;
     return res.status(400).json({ ok: false, message: 'Password must be at least 6 characters.' });
   }
 
@@ -53,19 +65,26 @@ router.post('/register', async (req, res) => {
     return res.status(201).json({ ok: true, user: req.session.user });
   } catch (error) {
     if (error.code === 'ER_DUP_ENTRY' || /Duplicate entry/.test(error.message)) {
+      const redirect = redirectWithError(req, res, 'email-already-registered');
+      if (redirect) return redirect;
       return res.status(409).json({ ok: false, message: 'A user with that email already exists.' });
     }
 
     console.error('Register error:', error);
+    const redirect = redirectWithError(req, res, 'registration-unavailable');
+    if (redirect) return redirect;
     return res.status(500).json({ ok: false, message: 'Unable to create the account right now.' });
   }
 });
 
 router.post('/login', async (req, res) => {
-  const email = (req.body.email || '').trim().toLowerCase();
-  const password = String(req.body.password || '').trim();
+  const body = req.body || {};
+  const email = String(body.email || '').trim().toLowerCase();
+  const password = String(body.password || '').trim();
 
   if (!email || !password) {
+    const redirect = redirectWithError(req, res, 'missing-login-fields');
+    if (redirect) return redirect;
     return res.status(400).json({ ok: false, message: 'Email and password are required.' });
   }
 
@@ -74,11 +93,15 @@ router.post('/login', async (req, res) => {
     const user = rows[0];
 
     if (!user) {
+      const redirect = redirectWithError(req, res, 'invalid-credentials');
+      if (redirect) return redirect;
       return res.status(401).json({ ok: false, message: 'Invalid email or password.' });
     }
 
     const isValid = await bcrypt.compare(password, user.password_hash);
     if (!isValid) {
+      const redirect = redirectWithError(req, res, 'invalid-credentials');
+      if (redirect) return redirect;
       return res.status(401).json({ ok: false, message: 'Invalid email or password.' });
     }
 
@@ -96,6 +119,8 @@ router.post('/login', async (req, res) => {
     return res.json({ ok: true, user: req.session.user });
   } catch (error) {
     console.error('Login error:', error);
+    const redirect = redirectWithError(req, res, 'login-unavailable');
+    if (redirect) return redirect;
     return res.status(500).json({ ok: false, message: 'Unable to log in right now.' });
   }
 });

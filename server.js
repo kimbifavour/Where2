@@ -160,7 +160,17 @@ app.get('/login', (req, res) => {
   if (req.session.user) {
     return res.redirect('/resources');
   }
-  res.render('login', { title: 'Login', message: '' });
+  const messages = {
+    'missing-registration-fields': 'Please fill in your name, email, and password.',
+    'password-too-short': 'Your password must be at least 6 characters.',
+    'email-already-registered': 'An account with that email already exists.',
+    'registration-unavailable': 'We could not create your account right now. Please try again.',
+    'missing-login-fields': 'Please enter your email and password.',
+    'invalid-credentials': 'Invalid email or password.',
+    'login-unavailable': 'We could not log you in right now. Please try again.',
+  };
+  const message = messages[req.query.error] || '';
+  res.render('login', { title: 'Login', message });
 });
 
 app.get('/resources', (req, res) => {
