@@ -4,9 +4,9 @@ const { query } = require('../db/database');
 
 const router = express.Router();
 
-function redirectWithError(req, res, errorCode) {
+function redirectWithError(req, res, errorCode, page = '/login') {
   if (req.accepts('html')) {
-    return res.redirect(`/login?error=${encodeURIComponent(errorCode)}`);
+    return res.redirect(`${page}?error=${encodeURIComponent(errorCode)}`);
   }
   return null;
 }
@@ -33,13 +33,13 @@ router.post('/register', async (req, res) => {
   const password = String(body.password || '').trim();
 
   if (!name || !email || !password) {
-    const redirect = redirectWithError(req, res, 'missing-registration-fields');
+  const redirect = redirectWithError(req, res, 'missing-registration-fields', '/register');
     if (redirect) return redirect;
     return res.status(400).json({ ok: false, message: 'Name, email, and password are required.' });
   }
 
   if (password.length < 6) {
-    const redirect = redirectWithError(req, res, 'password-too-short');
+  const redirect = redirectWithError(req, res, 'password-too-short', '/register');
     if (redirect) return redirect;
     return res.status(400).json({ ok: false, message: 'Password must be at least 6 characters.' });
   }
@@ -65,13 +65,13 @@ router.post('/register', async (req, res) => {
     return res.status(201).json({ ok: true, user: req.session.user });
   } catch (error) {
     if (error.code === 'ER_DUP_ENTRY' || /Duplicate entry/.test(error.message)) {
-      const redirect = redirectWithError(req, res, 'email-already-registered');
+      const redirect = redirectWithError(req, res, 'email-already-registered', '/register');
       if (redirect) return redirect;
       return res.status(409).json({ ok: false, message: 'A user with that email already exists.' });
     }
 
     console.error('Register error:', error);
-    const redirect = redirectWithError(req, res, 'registration-unavailable');
+    const redirect = redirectWithError(req, res, 'registration-unavailable', '/register');
     if (redirect) return redirect;
     return res.status(500).json({ ok: false, message: 'Unable to create the account right now.' });
   }

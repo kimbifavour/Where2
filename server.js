@@ -156,10 +156,11 @@ app.get('/api/categories', async (req, res) => {
   }
 });
 
-app.get('/login', (req, res) => {
+function renderAuthPage(res, req, page, title) {
   if (req.session.user) {
     return res.redirect('/resources');
   }
+
   const messages = {
     'missing-registration-fields': 'Please fill in your name, email, and password.',
     'password-too-short': 'Your password must be at least 6 characters.',
@@ -169,8 +170,21 @@ app.get('/login', (req, res) => {
     'invalid-credentials': 'Invalid email or password.',
     'login-unavailable': 'We could not log you in right now. Please try again.',
   };
+
   const message = messages[req.query.error] || '';
-  res.render('login', { title: 'Login', message });
+  res.render(page, { title, message });
+}
+
+app.get('/login', (req, res) => {
+  renderAuthPage(res, req, 'login', 'Login');
+});
+
+app.get('/register', (req, res) => {
+  renderAuthPage(res, req, 'register', 'Create account');
+});
+
+app.get('/signup', (req, res) => {
+  renderAuthPage(res, req, 'register', 'Create account');
 });
 
 app.get('/resources', (req, res) => {
