@@ -72,6 +72,12 @@ label {
   font-weight: 600;
 }
 
+#resources-link{
+  text-transform: capitalize;
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
 input, select {
   width: 100%;
   padding: 0.7rem 0.8rem;

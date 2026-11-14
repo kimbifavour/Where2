@@ -4,17 +4,25 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Resources · Where 2</title>
-  <link rel="stylesheet" href="/css/resources.css">
+  <link rel="stylesheet" href="../css/resources.css">
+  <link rel="stylesheet" href="../css/styles.css">
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
   <header id="site-header" class="site-header">
-    <button class="nav-toggle" id="navToggle" type="button" aria-controls="site-nav" aria-expanded="false">
-      Menu
-    </button>
   </header>
   <div class="app">
-    <nav id="site-nav" class="site-nav" aria-label="Main"></nav>
+    <nav id="site-nav" class="site-nav" aria-label="Main">
+      <ul>
+        <li><a href="./dashboard.ejs">Dashboard</a></li>
+        <li id="resources-link"><a href="./resources.ejs">Resources</a></li>
+        <li><a href="./reports.ejs">Reports</a></li>
+        <li><a href="./recs.ejs">Recommendations</a></li>
+        <li><a href="./profile.ejs">My profile</a></li>
+
+      </ul>
+
+    </nav>
     <main id="main" class="main" tabindex="-1">
       <div class="page-head">
         <h1>Searchable campus resources</h1>
@@ -51,7 +59,7 @@
       <div id="list" class="grid cards"></div>
     </main>
   </div>
-  <script type="module" src="/js/resources.js"></script>
+  <script src="../js/resources.js" type="module"></script>
   <script>
     const navToggle = document.getElementById("navToggle");
     const siteNav = document.getElementById("site-nav");
