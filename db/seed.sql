@@ -52,96 +52,96 @@ INSERT INTO reports (user_id, resource_id, category_id, condition_id, comment, c
 SELECT u.id, r.id, r.category_id, c.id, 'Very quiet, plenty of seats.', NOW() - INTERVAL 5 MINUTE
 FROM users u JOIN resources r ON r.name = 'Main Library'
 JOIN condition_options c ON c.category_id = r.category_id AND c.code = 'quiet'
-WHERE u.email = 'alice@campus.edu';
+WHERE u.email = 'alhaji@mail.aub.edu';
 
 INSERT INTO reports (user_id, resource_id, category_id, condition_id, comment, created_at)
 SELECT u.id, r.id, r.category_id, c.id, 'Exam week, every table taken.', NOW() - INTERVAL 80 MINUTE
 FROM users u JOIN resources r ON r.name = 'Main Library'
 JOIN condition_options c ON c.category_id = r.category_id AND c.code = 'crowded'
-WHERE u.email = 'bob@campus.edu';
+WHERE u.email = 'favour@mail.aub.edu';
 
 INSERT INTO reports (user_id, resource_id, category_id, condition_id, comment, created_at)
 SELECT u.id, r.id, r.category_id, c.id, 'Getting busier.', NOW() - INTERVAL 121 MINUTE
 FROM users u JOIN resources r ON r.name = 'Main Library'
 JOIN condition_options c ON c.category_id = r.category_id AND c.code = 'moderate'
-WHERE u.email = 'carol@campus.edu';
+WHERE u.email = 'fatima@mail.aub.edu';
 
 -- Engineering Lounge
 INSERT INTO reports (user_id, resource_id, category_id, condition_id, comment, created_at)
 SELECT u.id, r.id, r.category_id, c.id, 'Some chatter, several desks available.', NOW() - INTERVAL 9 MINUTE
 FROM users u JOIN resources r ON r.name = 'Engineering Lounge'
 JOIN condition_options c ON c.category_id = r.category_id AND c.code = 'moderate'
-WHERE u.email = 'alice@campus.edu';
+WHERE u.email = 'alhaji@mail.aub.edu';
 
 -- Library Printer P2
 INSERT INTO reports (user_id, resource_id, category_id, condition_id, comment, created_at)
 SELECT u.id, r.id, r.category_id, c.id, 'Working - paper and toner available', NOW() - INTERVAL 6 MINUTE
 FROM users u JOIN resources r ON r.name = 'Library Printer P2'
 JOIN condition_options c ON c.category_id = r.category_id AND c.code = 'working'
-WHERE u.email = 'bob@campus.edu';
+WHERE u.email = 'favour@mail.aub.edu';
 
 -- Bechtel Printer B1
 INSERT INTO reports (user_id, resource_id, category_id, condition_id, comment, created_at)
 SELECT u.id, r.id, r.category_id, c.id, 'Paper jam, shows error E-12.', NOW() - INTERVAL 25 MINUTE
 FROM users u JOIN resources r ON r.name = 'Bechtel Printer B1'
 JOIN condition_options c ON c.category_id = r.category_id AND c.code = 'out_of_order'
-WHERE u.email = 'carol@campus.edu';
+WHERE u.email = 'fatima@mail.aub.edu';
 
 -- Computer Lab A
 INSERT INTO reports (user_id, resource_id, category_id, condition_id, comment, created_at)
 SELECT u.id, r.id, r.category_id, c.id, NULL, NOW() - INTERVAL 15 MINUTE
 FROM users u JOIN resources r ON r.name = 'Computer Lab A'
 JOIN condition_options c ON c.category_id = r.category_id AND c.code = 'many_free'
-WHERE u.email = 'alice@campus.edu';
+WHERE u.email = 'alhaji@mail.aub.edu';
 
 -- Engineering CAD Lab
 INSERT INTO reports (user_id, resource_id, category_id, condition_id, comment, created_at)
 SELECT u.id, r.id, r.category_id, c.id, 'Class in session, almost full.', NOW() - INTERVAL 40 MINUTE
 FROM users u JOIN resources r ON r.name = 'Engineering CAD Lab'
 JOIN condition_options c ON c.category_id = r.category_id AND c.code = 'some_free'
-WHERE u.email = 'bob@campus.edu';
+WHERE u.email = 'favour@mail.aub.edu';
 
 -- Central Cafeteria
 INSERT INTO reports (user_id, resource_id, category_id, condition_id, comment, created_at)
 SELECT u.id, r.id, r.category_id, c.id, 'The line is moving steadily', NOW() - INTERVAL 12 MINUTE
 FROM users u JOIN resources r ON r.name = 'Central Cafeteria'
 JOIN condition_options c ON c.category_id = r.category_id AND c.code = 'moderate_wait'
-WHERE u.email = 'carol@campus.edu';
+WHERE u.email = 'fatima@mail.aub.edu';
 
 -- Milk Bar
 INSERT INTO reports (user_id, resource_id, category_id, condition_id, comment, created_at)
 SELECT u.id, r.id, r.category_id, c.id, 'Huge line at lunch time.', NOW() - INTERVAL 30 MINUTE
 FROM users u JOIN resources r ON r.name = 'Milk Bar'
 JOIN condition_options c ON c.category_id = r.category_id AND c.code = 'long_wait'
-WHERE u.email = 'alice@campus.edu';
+WHERE u.email = 'alhaji@mail.aub.edu';
 
 -- Old history report (3 days ago) - shows in history, never in current score
 INSERT INTO reports (user_id, resource_id, category_id, condition_id, comment, created_at)
 SELECT u.id, r.id, r.category_id, c.id, 'Empty on a Sunday.', NOW() - INTERVAL 3 DAY
 FROM users u JOIN resources r ON r.name = 'Nicely Study Room'
 JOIN condition_options c ON c.category_id = r.category_id AND c.code = 'quiet'
-WHERE u.email = 'bob@campus.edu';
+WHERE u.email = 'favour@mail.aub.edu';
 
 -- NOTE: 'Atrium Study Space' intentionally has NO reports -> shows "Unknown".
 
 -- ---------- Sample votes ----------
--- Alice's fresh "Quiet" Main Library report: Bob and Carol confirm it
+-- alhaji's fresh "Quiet" Main Library report: favour and fatima confirm it
 INSERT INTO report_votes (user_id, report_id, vote)
 SELECT u.id, rp.id, 'confirm'
 FROM users u
 JOIN reports rp ON rp.comment = 'Very quiet, plenty of seats.'
-WHERE u.email IN ('bob@campus.edu', 'carol@campus.edu');
+WHERE u.email IN ('favour@mail.aub.edu', 'fatima@mail.aub.edu');
 
--- Bob's "Crowded" Main Library report: Alice disputes it
+-- favour's "Crowded" Main Library report: alhaji disputes it
 INSERT INTO report_votes (user_id, report_id, vote)
 SELECT u.id, rp.id, 'dispute'
 FROM users u
 JOIN reports rp ON rp.comment = 'Exam week, every table taken.'
-WHERE u.email = 'alice@campus.edu';
+WHERE u.email = 'alhaji@mail.aub.edu';
 
--- Carol's broken printer report: Alice and Bob confirm
+-- fatima's broken printer report: alhaji and favour confirm
 INSERT INTO report_votes (user_id, report_id, vote)
 SELECT u.id, rp.id, 'confirm'
 FROM users u
 JOIN reports rp ON rp.comment = 'Paper jam, shows error E-12.'
-WHERE u.email IN ('alice@campus.edu', 'bob@campus.edu');
+WHERE u.email IN ('alhaji@mail.aub.edu', 'favour@mail.aub.edu');
