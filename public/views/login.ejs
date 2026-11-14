@@ -25,7 +25,7 @@
         color: var(--text);
       }
       .auth-card {
-        width: min(92vw, 760px);
+        width: min(92vw, 480px);
         background: var(--panel);
         padding: 2rem;
         border-radius: 18px;
@@ -67,13 +67,13 @@
         cursor: pointer;
       }
       button:hover { background: var(--accent-dark); }
-      .auth-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 1rem;
-      }
-      .panel h2 {
-        margin: 0 0 0.75rem;
+      .alt-link {
+        display: block;
+        margin-top: 1rem;
+        text-align: center;
+        color: var(--accent);
+        text-decoration: none;
+        font-weight: 600;
       }
       .notice {
         color: var(--error);
@@ -83,14 +83,6 @@
         border-radius: 10px;
         background: #fef2f2;
       }
-      @media (max-width: 640px) {
-        .auth-card {
-          padding: 1.25rem;
-        }
-        .auth-grid {
-          grid-template-columns: 1fr;
-        }
-      }
     </style>
   </head>
   <body>
@@ -98,41 +90,20 @@
       <h1>Where2</h1>
       <p class="subtitle">Sign in to check campus resources, rooms, labs, and cafés.</p>
 
-      <div class="auth-grid">
-        <section class="panel">
-          <h2>Login</h2>
-          <form method="post" action="/auth/login">
-            <label>
-              Email
-              <input type="email" name="email" required placeholder="you@campus.edu">
-            </label>
-            <label>
-              Password
-              <input type="password" name="password" required placeholder="••••••••">
-            </label>
-            <button type="submit">Sign in</button>
-          </form>
-        </section>
+      <form method="post" action="/auth/login">
+        <label>
+          Email
+          <input type="email" name="email" required placeholder="you@campus.edu">
+        </label>
+        <label>
+          Password
+          <input type="password" name="password" required placeholder="••••••••">
+        </label>
+        <button type="submit">Sign in</button>
+      </form>
 
-        <section class="panel">
-          <h2>Register</h2>
-          <form method="post" action="/auth/register">
-            <label>
-              Name
-              <input type="text" name="name" required placeholder="Your name">
-            </label>
-            <label>
-              Email
-              <input type="email" name="email" required placeholder="you@campus.edu">
-            </label>
-            <label>
-              Password
-              <input type="password" name="password" required placeholder="At least 6 characters">
-            </label>
-            <button type="submit">Create account</button>
-          </form>
-        </section>
-      </div>
+      <a class="alt-link" href="/register">Need an account? Sign up</a>
+
       <% if (message) { %>
         <p class="notice" role="alert"><%= message %></p>
       <% } %>
