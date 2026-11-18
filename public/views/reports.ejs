@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= title %> · Where 2</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="/css/resources.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <strong>Campus Pulse</strong>
+  </header>
+  <div class="app">
+    <nav class="site-nav" aria-label="Main navigation">
+      <ul>
+        <li><a href="/resources">Resources</a></li>
+        <li><a href="/reports" aria-current="page">Reports</a></li>
+        <li><a href="/auth/logout">Log out</a></li>
+      </ul>
+    </nav>
+    <main id="main" class="main" tabindex="-1">
+      <div class="page-head">
+        <h1>Confirm or dispute observations</h1>
+        <p>Use one active vote per report. You may change it at any time, but you cannot vote on your own report.</p>
+      </div>
+
+      <div id="message" class="message" role="status" aria-live="polite"></div>
+      <div id="report-list" class="report-list" aria-live="polite"></div>
+    </main>
+  </div>
+  <script src="/js/reports.js" type="module"></script>
+</body>
+</html>
