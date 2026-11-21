@@ -156,6 +156,116 @@ app.get('/api/categories', async (req, res) => {
   }
 });
 
+function requireSession(req, res, next) {
+  if (!req.session || !req.session.user) {
+    return res.status(401).json({ ok: false, message: 'Please sign in to continue.' });
+  }
+  next();
+}
+
+app.get('/api/reports', requireSession, async (req, res) => {
+  try {
+    const [rows] = await query(`
+      SELECT rp.id,
+             rp.resource_id,
+             rp.comment,
+             rp.created_at,
+             rp.user_id,
+             r.name AS resource_name,
+             r.building,
+             c.name AS category_name,
+             co.label AS condition_name,
+             u.name AS reporter_name,
+             SUM(CASE WHEN rv.vote = 'confirm' THEN 1 ELSE 0 END) AS confirm_count,
+             SUM(CASE WHEN rv.vote = 'dispute' THEN 1 ELSE 0 END) AS dispute_count,
+             MAX(CASE WHEN rv.user_id = ? THEN rv.vote ELSE NULL END) AS current_user_vote
+      FROM reports rp
+      JOIN resources r ON r.id = rp.resource_id
+      JOIN categories c ON c.id = rp.category_id
+      JOIN condition_options co ON co.id = rp.condition_id AND co.category_id = rp.category_id
+      JOIN users u ON u.id = rp.user_id
+      LEFT JOIN report_votes rv ON rv.report_id = rp.id
+      WHERE rp.is_hidden = FALSE
+      GROUP BY rp.id, rp.resource_id, rp.comment, rp.created_at, rp.user_id,
+               r.name, r.building, c.name, co.label, u.name
+      ORDER BY rp.created_at DESC
+      LIMIT 100
+    `, [req.session.user.id]);
+
+    const reports = rows.map((report) => ({
+      ...report,
+      confirm_count: Number(report.confirm_count || 0),
+      dispute_count: Number(report.dispute_count || 0),
+      is_own_report: Number(report.user_id) === Number(req.session.user.id),
+    }));
+
+    res.json({ ok: true, reports });
+  } catch (error) {
+    console.error('List reports error:', error);
+    res.status(500).json({ ok: false, message: 'Could not load reports.' });
+  }
+});
+
+app.post('/api/reports/:reportId/vote', requireSession, async (req, res) => {
+  const reportId = Number(req.params.reportId);
+  const vote = String(req.body && req.body.vote || '').trim().toLowerCase();
+
+  if (!Number.isInteger(reportId) || reportId < 1) {
+    return res.status(400).json({ ok: false, message: 'Invalid report.' });
+  }
+  if (!['confirm', 'dispute'].includes(vote)) {
+    return res.status(400).json({ ok: false, message: 'Vote must be confirm or dispute.' });
+  }
+
+  try {
+    const [reports] = await query(
+      'SELECT id, user_id, is_hidden FROM reports WHERE id = ?',
+      [reportId]
+    );
+    const report = reports[0];
+
+    if (!report) {
+      return res.status(404).json({ ok: false, message: 'Report not found.' });
+    }
+    if (report.is_hidden) {
+      return res.status(404).json({ ok: false, message: 'Report is no longer available.' });
+    }
+    if (Number(report.user_id) === Number(req.session.user.id)) {
+      return res.status(403).json({ ok: false, message: 'You cannot vote on your own report.' });
+    }
+
+    await query(`
+      INSERT INTO report_votes (user_id, report_id, vote)
+      VALUES (?, ?, ?)
+      ON DUPLICATE KEY UPDATE vote = VALUES(vote)
+    `, [req.session.user.id, reportId, vote]);
+
+    const [[totals]] = await query(`
+      SELECT
+        SUM(CASE WHEN vote = 'confirm' THEN 1 ELSE 0 END) AS confirm_count,
+        SUM(CASE WHEN vote = 'dispute' THEN 1 ELSE 0 END) AS dispute_count,
+        MAX(CASE WHEN user_id = ? THEN vote ELSE NULL END) AS current_user_vote
+      FROM report_votes
+      WHERE report_id = ?
+    `, [req.session.user.id, reportId]);
+
+    res.json({
+      ok: true,
+      report_id: reportId,
+      confirm_count: Number(totals.confirm_count || 0),
+      dispute_count: Number(totals.dispute_count || 0),
+      current_user_vote: totals.current_user_vote,
+      message: `Vote changed to ${vote}.`,
+    });
+  } catch (error) {
+    if (error.sqlState === '45000' || /self-vot|cannot vote/i.test(error.message)) {
+      return res.status(403).json({ ok: false, message: 'You cannot vote on your own report.' });
+    }
+    console.error('Vote error:', error);
+    res.status(500).json({ ok: false, message: 'Could not save your vote.' });
+  }
+});
+
 function renderAuthPage(res, req, page, title) {
   if (req.session.user) {
     return res.redirect('/resources');
@@ -192,6 +302,13 @@ app.get('/resources', (req, res) => {
     return res.redirect('/login');
   }
   res.render('resources', { title: 'Resources', user: req.session.user });
+});
+
+app.get('/reports', (req, res) => {
+  if (!req.session.user) {
+    return res.redirect('/login');
+  }
+  res.render('reports', { title: 'Community reports', user: req.session.user });
 });
 
 app.get('/', (req, res) => {
