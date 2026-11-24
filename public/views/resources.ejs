@@ -10,6 +10,16 @@
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
   <header id="site-header" class="site-header">
+  <strong>Campus Pulse</strong>
+    <button
+      id="navToggle"
+      class="nav-toggle"
+      type="button"
+      aria-controls="site-nav"
+      aria-expanded="false"
+    >
+      Menu
+    </button>
   </header>
   <div class="app">
     <nav id="site-nav" class="site-nav" aria-label="Main">
@@ -60,38 +70,6 @@
     </main>
   </div>
   <script src="/js/resources.js" type="module"></script>
-  <script>
-    const navToggle = document.getElementById("navToggle");
-    const siteNav = document.getElementById("site-nav");
-    const mobileNav = window.matchMedia("(max-width: 800px)");
-
-    function setMenuOpen(isOpen) {
-      siteNav.classList.toggle("open", isOpen);
-      navToggle.setAttribute("aria-expanded", String(isOpen));
-    }
-
-    navToggle.addEventListener("click", () => {
-      setMenuOpen(navToggle.getAttribute("aria-expanded") !== "true");
-    });
-
-    siteNav.addEventListener("click", (event) => {
-      if (mobileNav.matches && event.target instanceof Element && event.target.closest("a")) {
-        setMenuOpen(false);
-      }
-    });
-
-    document.addEventListener("keydown", (event) => {
-      if (event.key === "Escape" && mobileNav.matches) {
-        setMenuOpen(false);
-        navToggle.focus();
-      }
-    });
-
-    mobileNav.addEventListener("change", (event) => {
-      if (!event.matches) setMenuOpen(false);
-    });
-
-    document.body.classList.add("nav-enhanced");
-  </script>
+  <script src="/js/site-nav.js" defer></script>
 </body>
 </html>
