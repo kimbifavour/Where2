@@ -1,0 +1,47 @@
+.main > .panel + .panel {
+  margin-top: 1.25rem;
+}
+
+.main {
+  overflow-wrap: anywhere;
+}
+
+#profile-stats {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+#profile-stats article {
+  background: #f8fafc;
+  text-align: center;
+}
+
+#profile-stats h3 {
+  font-size: 1rem;
+  color: #5d6c80;
+  margin-bottom: 0.5rem;
+}
+
+#profile-stats p {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #1b3350;
+  margin: 0;
+}
+
+#profile-stats article:nth-child(2) p {
+  color: #0b6b4b;
+}
+
+#profile-stats article:nth-child(3) p {
+  color: #a3303f;
+}
+
+@media (max-width: 680px) {
+  #profile-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .grid.cards {
+    grid-template-columns: 1fr;
+  }
+}

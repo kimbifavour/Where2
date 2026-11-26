@@ -1,0 +1,80 @@
+.main > .panel + .panel {
+  margin-top: 1.25rem;
+}
+
+#recommendationForm {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: end;
+}
+
+#recommendButton {
+  min-height: 44px;
+  padding: 0.75rem 1rem;
+  border: none;
+  border-radius: 8px;
+  background: #1f6296;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+#recommendButton:hover:not(:disabled) {
+  background: #1b3350;
+}
+
+#recommendButton:disabled {
+  background: #dbe3ee;
+  color: #64748b;
+  cursor: not-allowed;
+}
+
+#recommendButton:focus-visible {
+  outline: 3px solid #f5a623;
+  outline-offset: 3px;
+}
+
+#message {
+  color: #5d6c80;
+  font-weight: 500;
+}
+
+#message[data-tone="error"] {
+  color: #b91c1c;
+}
+
+.recommendation-score {
+  display: inline-block;
+  padding: 0.4rem 0.75rem;
+  border-radius: 20px;
+  font-weight: 600;
+}
+
+.recommendation-score[data-level="high"] {
+  background: #dff4ea;
+  color: #0b6b4b;
+}
+
+.recommendation-score[data-level="medium"] {
+  background: #fdebcb;
+  color: #8a520a;
+}
+
+.recommendation-score[data-level="low"] {
+  background: #fde1e4;
+  color: #a3303f;
+}
+
+.recommendation-score[data-level="unknown"] {
+  background: #e4e9f0;
+  color: #4f5f74;
+}
+
+@media (max-width: 680px) {
+  #recommendationForm {
+    grid-template-columns: 1fr;
+  }
+
+  #results {
+    grid-template-columns: 1fr;
+  }
+}

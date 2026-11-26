@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= title %> · Where 2</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="/css/profile.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <strong>Where 2</strong>
+
+    <button
+      id="navToggle"
+      class="nav-toggle"
+      type="button"
+      aria-controls="site-nav"
+      aria-expanded="false"
+    >
+      Menu
+    </button>
+  </header>
+
+  <div class="app">
+    <%- include('site-nav', { currentPage: 'profile' }) %>
+
+    <main id="main" class="main" tabindex="-1">
+      <div class="page-head">
+        <h1>My profile</h1>
+        <p>View your account information and campus activity.</p>
+      </div>
+
+      <section class="panel">
+        <h2>Account information</h2>
+
+        <p><strong>Full name:</strong> <%= user.name %></p>
+
+        <p><strong>Email:</strong> <%= user.email %></p>
+
+        <p>
+          <strong>Account role:</strong>
+          <%= user.role === 'admin' ? 'Administrator' : 'Student' %>
+        </p>
+      </section>
+      <% if (activityError) { %>
+
+  <section class="panel">
+    <p role="alert">
+      Your activity is temporarily unavailable.
+      Please try again later.
+    </p>
+  </section>
+
+<% } else { %>
+
+  <section class="panel">
+    <h2>My activity</h2>
+
+    <div id="profile-stats" class="grid cards">
+
+      <article>
+        <h3>Reports submitted</h3>
+        <p><%= stats.total_reports %></p>
+      </article>
+
+      <article>
+        <h3>Confirm votes</h3>
+        <p><%= stats.confirms %></p>
+      </article>
+
+      <article>
+        <h3>Dispute votes</h3>
+        <p><%= stats.disputes %></p>
+      </article>
+
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>My recent reports</h2>
+
+    <% if (reports.length === 0) { %>
+
+      <p>You have not submitted any reports yet.</p>
+
+    <% } else { %>
+
+      <div class="grid cards">
+        <% reports.forEach(report => { %>
+
+          <article>
+            <h3><%= report.resource_name %></h3>
+
+            <p><%= report.building %></p>
+
+            <p>
+              <strong>Condition:</strong>
+              <%= report.condition_name %>
+            </p>
+
+            <p><%= report.comment || 'No comment provided.' %></p>
+
+            <p>
+              <strong>Submitted:</strong>
+              <%= report.report_date %>
+            </p>
+
+            <% if (report.is_hidden) { %>
+              <p>Hidden by an administrator</p>
+            <% } %>
+          </article>
+
+        <% }); %>
+      </div>
+
+    <% } %>
+  </section>
+
+  <section class="panel">
+    <h2>My recent votes</h2>
+    <p>Showing votes on visible reports.</p>
+
+    <% if (votes.length === 0) { %>
+
+      <p>No votes to display yet.</p>
+
+    <% } else { %>
+
+      <div class="grid cards">
+
+        <% votes.forEach(item => { %>
+
+          <article>
+            <h3><%= item.resource_name %></h3>
+
+            <p><%= item.building %></p>
+
+            <p>
+              <strong>Reported condition:</strong>
+              <%= item.condition_name %>
+            </p>
+
+            <p>
+              <strong>Your vote:</strong>
+              <%= item.vote === 'confirm' ? 'Confirm' : 'Dispute' %>
+            </p>
+          </article>
+
+        <% }); %>
+
+      </div>
+
+    <% } %>
+  </section>
+
+<% } %>
+    </main>
+  </div>
+
+  <script src="/js/site-nav.js" defer></script>
+</body>
+</html>

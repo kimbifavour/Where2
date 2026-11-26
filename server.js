@@ -401,6 +401,161 @@ app.get('/api/report-options', requireSession, async (req, res) => {
   }
 });
 
+app.get('/api/recommendations', requireSession, async (req, res) => {
+  const categoryId = Number(req.query.category_id);
+  const conditionId = Number(req.query.condition_id);
+  const building = String(req.query.building || '').trim();
+
+  if (
+    !Number.isInteger(categoryId) ||
+    categoryId < 1 ||
+    !Number.isInteger(conditionId) ||
+    conditionId < 1
+  ) {
+    return res.status(400).json({
+      ok: false,
+      message: 'Please select a valid category and condition.',
+    });
+  }
+
+  try {
+    const [preferences] = await query(`
+      SELECT label, score
+      FROM condition_options
+      WHERE id = ? AND category_id = ?
+    `, [conditionId, categoryId]);
+
+    if (!preferences.length) {
+      return res.status(400).json({
+        ok: false,
+        message: 'The selected condition does not match this category.',
+      });
+    }
+
+    const preference = preferences[0];
+
+    const [rows] = await query(`
+      SELECT
+        r.id,
+        r.name,
+        r.building,
+        r.floor,
+        r.description,
+        c.name AS category_name,
+        rp.id AS report_id,
+        co.score AS condition_score,
+        TIMESTAMPDIFF(
+          SECOND, rp.created_at, NOW()
+        ) / 60 AS age_minutes,
+        COALESCE(v.confirm_count, 0) AS confirms,
+        COALESCE(v.dispute_count, 0) AS disputes
+      FROM resources r
+      JOIN categories c ON c.id = r.category_id
+      LEFT JOIN reports rp
+        ON rp.resource_id = r.id
+        AND rp.is_hidden = FALSE
+        AND rp.created_at >= NOW() - INTERVAL ? MINUTE
+        AND rp.created_at <= NOW()
+      LEFT JOIN condition_options co
+        ON co.id = rp.condition_id
+      LEFT JOIN (
+        SELECT
+          report_id,
+          SUM(vote = 'confirm') AS confirm_count,
+          SUM(vote = 'dispute') AS dispute_count
+        FROM report_votes
+        GROUP BY report_id
+      ) v ON v.report_id = rp.id
+      WHERE r.is_active = TRUE
+        AND r.category_id = ?
+        AND (? = '' OR r.building = ?)
+      ORDER BY r.name
+    `, [
+      ACTIVE_REPORT_MINUTES,
+      categoryId,
+      building,
+      building
+    ]);
+
+    const grouped = new Map();
+
+    for (const row of rows) {
+      if (!grouped.has(row.id)) {
+        grouped.set(row.id, {
+          id: row.id,
+          name: row.name,
+          building: row.building,
+          floor: row.floor,
+          description: row.description,
+          category: row.category_name,
+          reportCount: 0,
+          totalWeight: 0,
+          weightedMatch: 0,
+        });
+      }
+
+      const resource = grouped.get(row.id);
+
+      if (row.report_id !== null) {
+        const freshnessWeight =
+          1 / (1 + Number(row.age_minutes) / 30);
+
+        const voteWeight =
+          (1 + Number(row.confirms)) /
+          (1 + Number(row.disputes));
+
+        const weight = freshnessWeight * voteWeight;
+
+        const match = 100 - Math.abs(
+          Number(row.condition_score) -
+          Number(preference.score)
+        );
+
+        resource.reportCount++;
+        resource.totalWeight += weight;
+        resource.weightedMatch += match * weight;
+      }
+    }
+
+    const recommendations = [...grouped.values()].map(resource => {
+      const score = resource.totalWeight > 0
+        ? Math.round(resource.weightedMatch / resource.totalWeight)
+        : null;
+
+      return {
+        id: resource.id,
+        name: resource.name,
+        building: resource.building,
+        floor: resource.floor,
+        description: resource.description,
+        category: resource.category,
+        reportCount: resource.reportCount,
+        score,
+        explanation: score === null
+          ? 'No recent reports. Current conditions are unknown.'
+          : `${score}% match for "${preference.label}", based on ${resource.reportCount} recent report(s), weighted by freshness and community votes.`,
+      };
+    });
+
+    recommendations.sort(
+      (a, b) => (b.score ?? -1) - (a.score ?? -1)
+    );
+
+    res.json({
+      ok: true,
+      recommendations,
+    });
+
+  } catch (error) {
+    console.error('Recommendations error:', error);
+
+    res.status(500).json({
+      ok: false,
+      message: 'Could not load recommendations.',
+    });
+  }
+});
+
 app.post('/api/reports', requireSession, async (req, res) => {
   const body = req.body || {};
   const resourceId = Number(body.resource_id);
@@ -502,6 +657,99 @@ app.get('/reports', (req, res) => {
     return res.redirect('/login');
   }
   res.render('reports', { title: 'Community reports', user: req.session.user });
+});
+
+app.get('/recommendations', (req, res) => {
+  if (!req.session.user) {
+    return res.redirect('/login');
+  }
+
+  res.render('recs', {
+    title: 'Recommendations',
+    user: req.session.user,
+  });
+});
+
+app.get('/profile', async (req, res) => {
+  if (!req.session.user) {
+    return res.redirect('/login');
+  }
+
+  const user = req.session.user;
+
+  try {
+    const [[stats]] = await query(`
+      SELECT
+        (
+          SELECT COUNT(*)
+          FROM reports
+          WHERE user_id = ?
+        ) AS total_reports,
+        (
+          SELECT COUNT(*)
+          FROM report_votes
+          WHERE user_id = ? AND vote = 'confirm'
+        ) AS confirms,
+        (
+          SELECT COUNT(*)
+          FROM report_votes
+          WHERE user_id = ? AND vote = 'dispute'
+        ) AS disputes
+    `, [user.id, user.id, user.id]);
+
+    const [reports] = await query(`
+      SELECT
+        r.name AS resource_name,
+        r.building,
+        co.label AS condition_name,
+        rp.comment,
+        rp.is_hidden,
+        DATE_FORMAT(rp.created_at, '%d %b %Y') AS report_date
+      FROM reports rp
+      JOIN resources r ON r.id = rp.resource_id
+      JOIN condition_options co ON co.id = rp.condition_id
+      WHERE rp.user_id = ?
+      ORDER BY rp.created_at DESC, rp.id DESC
+      LIMIT 10
+    `, [user.id]);
+
+    const [votes] = await query(`
+      SELECT
+        r.name AS resource_name,
+        r.building,
+        co.label AS condition_name,
+        rv.vote
+      FROM report_votes rv
+      JOIN reports rp ON rp.id = rv.report_id
+      JOIN resources r ON r.id = rp.resource_id
+      JOIN condition_options co ON co.id = rp.condition_id
+      WHERE rv.user_id = ?
+        AND rp.is_hidden = FALSE
+      ORDER BY rv.created_at DESC
+      LIMIT 10
+    `, [user.id]);
+
+    res.render('profile', {
+      title: 'My profile',
+      user,
+      stats,
+      reports,
+      votes,
+      activityError: false,
+    });
+
+  } catch (error) {
+    console.error('Profile error:', error);
+
+    res.render('profile', {
+      title: 'My profile',
+      user,
+      stats: null,
+      reports: [],
+      votes: [],
+      activityError: true,
+    });
+  }
 });
 
 app.get('/', (req, res) => {
