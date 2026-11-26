@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= title %> · Where 2</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="/css/dashboard.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <strong>Where 2</strong>
+    <button
+      id="navToggle"
+      class="nav-toggle"
+      type="button"
+      aria-controls="site-nav"
+      aria-expanded="false"
+    >
+      Menu
+    </button>
+  </header>
+  <div class="app">
+    <nav id="site-nav" class="site-nav" aria-label="Main navigation">
+      <ul>
+        <li><a href="/dashboard" aria-current="page">Dashboard</a></li>
+        <li><a href="/resources">Resources</a></li>
+        <li><a href="/reports">Reports</a></li>
+        <li><a href="/auth/logout">Log out</a></li>
+      </ul>
+    </nav>
+    <main id="main" class="main" tabindex="-1">
+      <div class="page-head">
+        <h1>Campus dashboard</h1>
+        <p>
+          Hi <%= user.name %>. Live conditions from reports in the last
+          <span id="windowLabel">2 hours</span>.
+          <span class="updated" id="updated" aria-live="off"></span>
+        </p>
+      </div>
+
+      <div id="dashMessage" class="dash-message" role="status" aria-live="polite"></div>
+
+      <section class="stats" aria-label="Summary">
+        <div class="stat">
+          <span class="stat-label">Active resources</span>
+          <strong class="stat-value" id="statResources">–</strong>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Active reports</span>
+          <strong class="stat-value" id="statReports">–</strong>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Resources with recent observations</span>
+          <strong class="stat-value" id="statObserved">–</strong>
+          <span class="stat-sub" id="statObservedSub"></span>
+        </div>
+      </section>
+
+      <div class="dash-grid">
+        <section class="panel chart-panel" aria-labelledby="chartTitle">
+          <div class="panel-head">
+            <h2 id="chartTitle">Resource status by category</h2>
+            <button type="button" class="link-button" id="toggleTable" aria-pressed="false">Show table</button>
+          </div>
+          <ul class="legend" aria-label="Status colors">
+            <li><i class="sw fav"></i>Favorable</li>
+            <li><i class="sw mod"></i>Moderate</li>
+            <li><i class="sw unf"></i>Unfavorable</li>
+            <li><i class="sw unk"></i>No recent reports</li>
+          </ul>
+          <div id="chart" class="chart" role="img" aria-label="Loading chart"></div>
+          <div id="chartTable" class="chart-table" hidden></div>
+          <div id="tooltip" class="tooltip" role="presentation" hidden></div>
+        </section>
+
+        <section class="panel" aria-labelledby="formTitle">
+          <h2 id="formTitle">Report a condition</h2>
+          <form id="reportForm" class="report-form" novalidate>
+            <div class="field">
+              <label for="resourceSelect">Resource</label>
+              <select id="resourceSelect" name="resource_id" required>
+                <option value="">Loading…</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="conditionSelect" id="conditionLabel">Condition</label>
+              <select id="conditionSelect" name="condition_id" required disabled>
+                <option value="">Choose a resource first</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="commentInput">Comment <span class="optional">(optional)</span></label>
+              <textarea id="commentInput" name="comment" rows="3" maxlength="500"></textarea>
+            </div>
+            <button type="submit" class="primary-button" id="submitReport">Submit report</button>
+            <p id="formMessage" class="form-message" role="status" aria-live="polite"></p>
+          </form>
+        </section>
+      </div>
+
+      <div class="dash-grid three">
+        <section class="panel" aria-labelledby="favTitle">
+          <h2 id="favTitle"><span class="pill fav">Favorable</span> <span class="count" id="favCount"></span></h2>
+          <ul id="favList" class="res-list"></ul>
+        </section>
+        <section class="panel" aria-labelledby="unfTitle">
+          <h2 id="unfTitle"><span class="pill unf">Unfavorable</span> <span class="count" id="unfCount"></span></h2>
+          <ul id="unfList" class="res-list"></ul>
+        </section>
+        <section class="panel" aria-labelledby="recentTitle">
+          <h2 id="recentTitle">Recently observed</h2>
+          <ul id="recentList" class="res-list"></ul>
+        </section>
+      </div>
+    </main>
+  </div>
+  <script src="/js/dashboard.js" type="module"></script>
+  <script src="/js/site-nav.js" defer></script>
+</body>
+</html>
