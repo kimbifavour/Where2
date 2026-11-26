@@ -266,6 +266,192 @@ app.post('/api/reports/:reportId/vote', requireSession, async (req, res) => {
   }
 });
 
+// A report counts as "active" (current) for this many minutes after it is submitted.
+const ACTIVE_REPORT_MINUTES = 120;
+
+// Average condition score (0..100) of a resource's active reports -> status bucket.
+function statusFromScore(score) {
+  if (score === null || score === undefined) return 'unknown';
+  const value = Number(score);
+  if (value >= 67) return 'favorable';
+  if (value >= 34) return 'moderate';
+  return 'unfavorable';
+}
+
+async function buildDashboardSummary() {
+  const [[counts]] = await query(`
+    SELECT
+      (SELECT COUNT(*) FROM resources WHERE is_active = TRUE) AS active_resources,
+      (SELECT COUNT(*)
+         FROM reports rp
+         JOIN resources r ON r.id = rp.resource_id AND r.is_active = TRUE
+        WHERE rp.is_hidden = FALSE
+          AND rp.created_at >= NOW() - INTERVAL ? MINUTE) AS active_reports,
+      (SELECT COUNT(DISTINCT rp.resource_id)
+         FROM reports rp
+         JOIN resources r ON r.id = rp.resource_id AND r.is_active = TRUE
+        WHERE rp.is_hidden = FALSE
+          AND rp.created_at >= NOW() - INTERVAL ? MINUTE) AS observed_resources
+  `, [ACTIVE_REPORT_MINUTES, ACTIVE_REPORT_MINUTES]);
+
+  const [rows] = await query(`
+    SELECT r.id,
+           r.name,
+           r.building,
+           c.name AS category_name,
+           act.report_count,
+           act.avg_score,
+           act.last_report_at,
+           (SELECT co.label
+              FROM reports lr
+              JOIN condition_options co ON co.id = lr.condition_id
+             WHERE lr.resource_id = r.id
+               AND lr.is_hidden = FALSE
+               AND lr.created_at >= NOW() - INTERVAL ? MINUTE
+             ORDER BY lr.created_at DESC, lr.id DESC
+             LIMIT 1) AS latest_condition
+    FROM resources r
+    JOIN categories c ON c.id = r.category_id
+    LEFT JOIN (
+      SELECT rp.resource_id,
+             COUNT(*) AS report_count,
+             AVG(co.score) AS avg_score,
+             MAX(rp.created_at) AS last_report_at
+      FROM reports rp
+      JOIN condition_options co ON co.id = rp.condition_id
+      WHERE rp.is_hidden = FALSE
+        AND rp.created_at >= NOW() - INTERVAL ? MINUTE
+      GROUP BY rp.resource_id
+    ) act ON act.resource_id = r.id
+    WHERE r.is_active = TRUE
+    ORDER BY c.name ASC, r.name ASC
+  `, [ACTIVE_REPORT_MINUTES, ACTIVE_REPORT_MINUTES]);
+
+  const resources = rows.map((row) => {
+    const avgScore = row.avg_score === null ? null : Math.round(Number(row.avg_score));
+    return {
+      id: row.id,
+      name: row.name,
+      building: row.building,
+      category_name: row.category_name,
+      report_count: Number(row.report_count || 0),
+      avg_score: avgScore,
+      status: statusFromScore(avgScore),
+      latest_condition: row.latest_condition,
+      last_report_at: row.last_report_at,
+    };
+  });
+
+  const byCategory = new Map();
+  resources.forEach((resource) => {
+    if (!byCategory.has(resource.category_name)) {
+      byCategory.set(resource.category_name, {
+        category: resource.category_name,
+        favorable: 0,
+        moderate: 0,
+        unfavorable: 0,
+        unknown: 0,
+      });
+    }
+    byCategory.get(resource.category_name)[resource.status] += 1;
+  });
+
+  const byRecency = (a, b) => new Date(b.last_report_at) - new Date(a.last_report_at);
+
+  return {
+    active_window_minutes: ACTIVE_REPORT_MINUTES,
+    generated_at: new Date().toISOString(),
+    counts: {
+      active_resources: Number(counts.active_resources || 0),
+      active_reports: Number(counts.active_reports || 0),
+      observed_resources: Number(counts.observed_resources || 0),
+    },
+    recent: resources.filter((r) => r.report_count > 0).sort(byRecency),
+    favorable: resources.filter((r) => r.status === 'favorable').sort(byRecency),
+    unfavorable: resources.filter((r) => r.status === 'unfavorable').sort(byRecency),
+    by_category: Array.from(byCategory.values()),
+  };
+}
+
+app.get('/api/dashboard', requireSession, async (req, res) => {
+  try {
+    res.json({ ok: true, ...(await buildDashboardSummary()) });
+  } catch (error) {
+    console.error('Dashboard error:', error);
+    res.status(503).json({ ok: false, message: 'Dashboard data is unavailable right now.' });
+  }
+});
+
+app.get('/api/report-options', requireSession, async (req, res) => {
+  try {
+    const [resources] = await query(`
+      SELECT r.id, r.name, r.building, r.category_id, c.name AS category_name, c.condition_label
+      FROM resources r
+      JOIN categories c ON c.id = r.category_id
+      WHERE r.is_active = TRUE
+      ORDER BY c.name ASC, r.name ASC
+    `);
+    const [conditions] = await query(
+      'SELECT id, category_id, label FROM condition_options ORDER BY category_id, sort_order'
+    );
+    res.json({ ok: true, resources, conditions });
+  } catch (error) {
+    console.error('Report options error:', error);
+    res.status(503).json({ ok: false, message: 'Could not load the report form.' });
+  }
+});
+
+app.post('/api/reports', requireSession, async (req, res) => {
+  const body = req.body || {};
+  const resourceId = Number(body.resource_id);
+  const conditionId = Number(body.condition_id);
+  const comment = String(body.comment || '').trim();
+
+  if (!Number.isInteger(resourceId) || resourceId < 1) {
+    return res.status(400).json({ ok: false, message: 'Please choose a resource.' });
+  }
+  if (!Number.isInteger(conditionId) || conditionId < 1) {
+    return res.status(400).json({ ok: false, message: 'Please choose a condition.' });
+  }
+  if (comment.length > 500) {
+    return res.status(400).json({ ok: false, message: 'Comments can be at most 500 characters.' });
+  }
+
+  try {
+    const [resources] = await query(
+      'SELECT id, category_id FROM resources WHERE id = ? AND is_active = TRUE',
+      [resourceId]
+    );
+    const resource = resources[0];
+    if (!resource) {
+      return res.status(404).json({ ok: false, message: 'That resource is not available.' });
+    }
+
+    const [conditions] = await query(
+      'SELECT id FROM condition_options WHERE id = ? AND category_id = ?',
+      [conditionId, resource.category_id]
+    );
+    if (!conditions.length) {
+      return res.status(400).json({ ok: false, message: 'That condition does not apply to this resource.' });
+    }
+
+    const [result] = await query(`
+      INSERT INTO reports (user_id, resource_id, category_id, condition_id, comment)
+      VALUES (?, ?, ?, ?, ?)
+    `, [req.session.user.id, resourceId, resource.category_id, conditionId, comment || null]);
+
+    res.status(201).json({
+      ok: true,
+      report_id: result.insertId,
+      message: 'Thanks! Your report was added.',
+      dashboard: await buildDashboardSummary(),
+    });
+  } catch (error) {
+    console.error('Create report error:', error);
+    res.status(500).json({ ok: false, message: 'Could not save your report.' });
+  }
+});
+
 function renderAuthPage(res, req, page, title) {
   if (req.session.user) {
     return res.redirect('/resources');
@@ -302,6 +488,13 @@ app.get('/resources', (req, res) => {
     return res.redirect('/login');
   }
   res.render('resources', { title: 'Resources', user: req.session.user });
+});
+
+app.get('/dashboard', (req, res) => {
+  if (!req.session.user) {
+    return res.redirect('/login');
+  }
+  res.render('dashboard', { title: 'Dashboard', user: req.session.user });
 });
 
 app.get('/reports', (req, res) => {
