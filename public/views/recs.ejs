@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= title %> · Where 2</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="/css/recommendations.css">
+
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <strong>Where 2</strong>
+    <button
+      id="navToggle"
+      class="nav-toggle"
+      type="button"
+      aria-controls="site-nav"
+      aria-expanded="false"
+    >
+      Menu
+    </button>
+  </header>
+
+  <div class="app">
+    <nav id="site-nav" class="site-nav" aria-label="Main navigation">
+      <ul>
+        <li><a href="/dashboard">Dashboard</a></li>
+        <li><a href="/resources">Resources</a></li>
+        <li><a href="/reports">Reports</a></li>
+        <li><a href="/recommendations" aria-current="page">Recommendations</a></li>
+        <li><a href="/auth/logout">Log out</a></li>
+      </ul>
+    </nav>
+
+    <main id="main" class="main" tabindex="-1">
+      <div class="page-head">
+        <h1>Campus recommendations</h1>
+        <p>Find campus resources that match your preferences and recent conditions.</p>
+      </div>
+      <section class="panel">
+  <h2>Your preferences</h2>
+
+  <form id="recommendationForm" class="filters">
+    <div class="field">
+      <label for="category">Resource category</label>
+      <select id="category" required disabled>
+        <option value="">Choose a category</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="building">Preferred location</label>
+      <select id="building" disabled>
+        <option value="">Any location</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="preference">Preferred condition</label>
+      <select id="preference" required disabled>
+        <option value="">Choose a category first</option>
+      </select>
+    </div>
+
+    <button id="recommendButton" type="submit" disabled>
+      Find recommendations
+    </button>
+  </form>
+
+  <p id="message" role="status" aria-live="polite"></p>
+</section>
+
+<section class="panel">
+  <h2>Recommended resources</h2>
+  <div id="results" class="grid cards" aria-live="polite">
+    <p>Select your preferences to find matching resources.</p>
+  </div>
+</section>
+    </main>
+  </div>
+
+  <script src="/js/site-nav.js" defer></script>
+  <script src="/js/recommendations.js" defer></script>
+</body>
+</html>
