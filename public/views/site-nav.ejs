@@ -1,0 +1,40 @@
+<nav id="site-nav" class="site-nav" aria-label="Main navigation">
+  <ul>
+    <li>
+      <a href="/dashboard"
+        <% if (currentPage === 'dashboard') { %>aria-current="page"<% } %>>
+        Dashboard
+      </a>
+    </li>
+
+    <li>
+      <a href="/resources"
+        <% if (currentPage === 'resources') { %>aria-current="page"<% } %>>
+        Resources
+      </a>
+    </li>
+
+    <li>
+      <a href="/reports"
+        <% if (currentPage === 'reports') { %>aria-current="page"<% } %>>
+        Reports
+      </a>
+    </li>
+
+    <li>
+      <a href="/recommendations"
+        <% if (currentPage === 'recommendations') { %>aria-current="page"<% } %>>
+        Recommendations
+      </a>
+    </li>
+
+    <li>
+      <a href="/profile"
+        <% if (currentPage === 'profile') { %>aria-current="page"<% } %>>
+        My profile
+      </a>
+    </li>
+
+    <li><a href="/auth/logout">Log out</a></li>
+  </ul>
+</nav>

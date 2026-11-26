@@ -22,14 +22,7 @@
     </button>
   </header>
   <div class="app">
-    <nav id="site-nav" class="site-nav" aria-label="Main navigation">
-      <ul>
-        <li><a href="/dashboard" aria-current="page">Dashboard</a></li>
-        <li><a href="/resources">Resources</a></li>
-        <li><a href="/reports">Reports</a></li>
-        <li><a href="/auth/logout">Log out</a></li>
-      </ul>
-    </nav>
+    <%- include('site-nav', { currentPage: 'dashboard' }) %>
     <main id="main" class="main" tabindex="-1">
       <div class="page-head">
         <h1>Campus dashboard</h1>

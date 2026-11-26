@@ -670,6 +670,88 @@ app.get('/recommendations', (req, res) => {
   });
 });
 
+app.get('/profile', async (req, res) => {
+  if (!req.session.user) {
+    return res.redirect('/login');
+  }
+
+  const user = req.session.user;
+
+  try {
+    const [[stats]] = await query(`
+      SELECT
+        (
+          SELECT COUNT(*)
+          FROM reports
+          WHERE user_id = ?
+        ) AS total_reports,
+        (
+          SELECT COUNT(*)
+          FROM report_votes
+          WHERE user_id = ? AND vote = 'confirm'
+        ) AS confirms,
+        (
+          SELECT COUNT(*)
+          FROM report_votes
+          WHERE user_id = ? AND vote = 'dispute'
+        ) AS disputes
+    `, [user.id, user.id, user.id]);
+
+    const [reports] = await query(`
+      SELECT
+        r.name AS resource_name,
+        r.building,
+        co.label AS condition_name,
+        rp.comment,
+        rp.is_hidden,
+        DATE_FORMAT(rp.created_at, '%d %b %Y') AS report_date
+      FROM reports rp
+      JOIN resources r ON r.id = rp.resource_id
+      JOIN condition_options co ON co.id = rp.condition_id
+      WHERE rp.user_id = ?
+      ORDER BY rp.created_at DESC, rp.id DESC
+      LIMIT 10
+    `, [user.id]);
+
+    const [votes] = await query(`
+      SELECT
+        r.name AS resource_name,
+        r.building,
+        co.label AS condition_name,
+        rv.vote
+      FROM report_votes rv
+      JOIN reports rp ON rp.id = rv.report_id
+      JOIN resources r ON r.id = rp.resource_id
+      JOIN condition_options co ON co.id = rp.condition_id
+      WHERE rv.user_id = ?
+        AND rp.is_hidden = FALSE
+      ORDER BY rv.created_at DESC
+      LIMIT 10
+    `, [user.id]);
+
+    res.render('profile', {
+      title: 'My profile',
+      user,
+      stats,
+      reports,
+      votes,
+      activityError: false,
+    });
+
+  } catch (error) {
+    console.error('Profile error:', error);
+
+    res.render('profile', {
+      title: 'My profile',
+      user,
+      stats: null,
+      reports: [],
+      votes: [],
+      activityError: true,
+    });
+  }
+});
+
 app.get('/', (req, res) => {
   if (req.session.user) {
     return res.redirect('/resources');
