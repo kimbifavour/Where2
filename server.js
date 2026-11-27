@@ -752,6 +752,296 @@ app.get('/profile', async (req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// Admin
+// Every admin is a user (same `users` table); only rows with role = 'admin'
+// get through. The role is re-read from the database on each request so that
+// a demoted admin loses access immediately rather than at their next login.
+// ---------------------------------------------------------------------------
+
+function requireAdmin({ api }) {
+  return async (req, res, next) => {
+    const sessionUser = req.session && req.session.user;
+    if (!sessionUser) {
+      return api
+        ? res.status(401).json({ ok: false, message: 'Please sign in to continue.' })
+        : res.redirect('/login');
+    }
+
+    try {
+      const [[row]] = await query('SELECT role FROM users WHERE id = ?', [sessionUser.id]);
+      if (!row) {
+        req.session.destroy(() => {});
+        return api
+          ? res.status(401).json({ ok: false, message: 'Please sign in to continue.' })
+          : res.redirect('/login');
+      }
+
+      sessionUser.role = row.role;
+      if (row.role !== 'admin') {
+        return api
+          ? res.status(403).json({ ok: false, message: 'Admins only.' })
+          : res.redirect('/dashboard');
+      }
+
+      next();
+    } catch (error) {
+      console.error('Admin check error:', error);
+      return api
+        ? res.status(500).json({ ok: false, message: 'Could not verify admin access.' })
+        : res.status(500).send('Could not verify admin access.');
+    }
+  };
+}
+
+const requireAdminPage = requireAdmin({ api: false });
+const requireAdminApi = requireAdmin({ api: true });
+
+app.get('/admin', requireAdminPage, (req, res) => {
+  res.render('admin', { title: 'Admin', user: req.session.user });
+});
+
+app.get('/api/admin/overview', requireAdminApi, async (req, res) => {
+  try {
+    const [[stats]] = await query(`
+      SELECT
+        (SELECT COUNT(*) FROM users) AS total_users,
+        (SELECT COUNT(*) FROM users WHERE role = 'admin') AS total_admins,
+        (SELECT COUNT(*) FROM reports) AS total_reports,
+        (SELECT COUNT(*) FROM reports WHERE is_hidden = TRUE) AS hidden_reports,
+        (SELECT COUNT(*) FROM resources) AS total_resources,
+        (SELECT COUNT(*) FROM resources WHERE is_active = FALSE) AS inactive_resources
+    `);
+
+    const [users] = await query(`
+      SELECT u.id, u.name, u.email, u.role, u.created_at,
+             (SELECT COUNT(*) FROM reports rp WHERE rp.user_id = u.id) AS report_count
+      FROM users u
+      ORDER BY u.role = 'admin' DESC, u.created_at DESC
+    `);
+
+    const [reports] = await query(`
+      SELECT rp.id, rp.comment, rp.created_at, rp.is_hidden, rp.moderated_at,
+             r.name AS resource_name, r.building,
+             co.label AS condition_name,
+             u.name AS reporter_name,
+             m.name AS moderator_name,
+             SUM(CASE WHEN rv.vote = 'confirm' THEN 1 ELSE 0 END) AS confirm_count,
+             SUM(CASE WHEN rv.vote = 'dispute' THEN 1 ELSE 0 END) AS dispute_count
+      FROM reports rp
+      JOIN resources r ON r.id = rp.resource_id
+      JOIN condition_options co ON co.id = rp.condition_id
+      JOIN users u ON u.id = rp.user_id
+      LEFT JOIN users m ON m.id = rp.moderated_by
+      LEFT JOIN report_votes rv ON rv.report_id = rp.id
+      GROUP BY rp.id, rp.comment, rp.created_at, rp.is_hidden, rp.moderated_at,
+               r.name, r.building, co.label, u.name, m.name
+      ORDER BY rp.created_at DESC
+      LIMIT 100
+    `);
+
+    const [resources] = await query(`
+      SELECT r.id, r.name, r.category_id, r.building, r.floor, r.description,
+             r.capacity, r.features, r.is_active, c.name AS category_name,
+             (SELECT COUNT(*) FROM reports rp WHERE rp.resource_id = r.id) AS report_count
+      FROM resources r
+      JOIN categories c ON c.id = r.category_id
+      ORDER BY r.name ASC
+    `);
+
+    const [categories] = await query('SELECT id, name FROM categories ORDER BY name ASC');
+
+    res.json({
+      ok: true,
+      currentUserId: req.session.user.id,
+      stats: Object.fromEntries(Object.entries(stats).map(([key, value]) => [key, Number(value || 0)])),
+      users: users.map((u) => ({ ...u, report_count: Number(u.report_count || 0) })),
+      reports: reports.map((rp) => ({
+        ...rp,
+        is_hidden: Boolean(rp.is_hidden),
+        confirm_count: Number(rp.confirm_count || 0),
+        dispute_count: Number(rp.dispute_count || 0),
+      })),
+      resources: resources.map((r) => ({
+        ...r,
+        is_active: Boolean(r.is_active),
+        report_count: Number(r.report_count || 0),
+      })),
+      categories,
+    });
+  } catch (error) {
+    console.error('Admin overview error:', error);
+    res.status(500).json({ ok: false, message: 'Could not load admin data.' });
+  }
+});
+
+app.patch('/api/admin/users/:userId/role', requireAdminApi, async (req, res) => {
+  const userId = Number(req.params.userId);
+  const role = String((req.body || {}).role || '');
+
+  if (!Number.isInteger(userId) || userId <= 0 || !['user', 'admin'].includes(role)) {
+    return res.status(400).json({ ok: false, message: 'Choose a valid user and role.' });
+  }
+
+  if (userId === Number(req.session.user.id) && role !== 'admin') {
+    return res.status(400).json({ ok: false, message: 'You cannot remove your own admin access.' });
+  }
+
+  try {
+    const [result] = await query('UPDATE users SET role = ? WHERE id = ?', [role, userId]);
+    if (!result.affectedRows) {
+      return res.status(404).json({ ok: false, message: 'User not found.' });
+    }
+    res.json({ ok: true, message: role === 'admin' ? 'User promoted to admin.' : 'Admin access removed.' });
+  } catch (error) {
+    console.error('Admin role update error:', error);
+    res.status(500).json({ ok: false, message: 'Could not update the role.' });
+  }
+});
+
+app.patch('/api/admin/reports/:reportId/visibility', requireAdminApi, async (req, res) => {
+  const reportId = Number(req.params.reportId);
+  const hidden = (req.body || {}).hidden;
+
+  if (!Number.isInteger(reportId) || reportId <= 0 || typeof hidden !== 'boolean') {
+    return res.status(400).json({ ok: false, message: 'Choose a valid report.' });
+  }
+
+  try {
+    const [result] = await query(
+      'UPDATE reports SET is_hidden = ?, moderated_by = ?, moderated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [hidden, req.session.user.id, reportId]
+    );
+    if (!result.affectedRows) {
+      return res.status(404).json({ ok: false, message: 'Report not found.' });
+    }
+    res.json({ ok: true, message: hidden ? 'Report hidden.' : 'Report restored.' });
+  } catch (error) {
+    console.error('Admin report moderation error:', error);
+    res.status(500).json({ ok: false, message: 'Could not update the report.' });
+  }
+});
+
+// Validates and normalises a resource payload. Returns { error } or { values }.
+async function parseResourceInput(body = {}) {
+  const text = (value) => String(value ?? '').trim();
+  const name = text(body.name);
+  const building = text(body.building);
+  const floor = text(body.floor);
+  const description = text(body.description);
+  const features = text(body.features);
+  const categoryId = Number(body.category_id);
+  const rawCapacity = text(body.capacity);
+  const capacity = rawCapacity === '' ? null : Number(rawCapacity);
+
+  if (!name || name.length > 120) return { error: 'Name is required (up to 120 characters).' };
+  if (!building || building.length > 100) return { error: 'Building is required (up to 100 characters).' };
+  if (floor.length > 30) return { error: 'Floor must be 30 characters or fewer.' };
+  if (features.length > 255) return { error: 'Features must be 255 characters or fewer.' };
+  if (description.length > 5000) return { error: 'Description must be 5000 characters or fewer.' };
+  if (capacity !== null && (!Number.isInteger(capacity) || capacity < 0 || capacity > 65535)) {
+    return { error: 'Capacity must be a whole number between 0 and 65535.' };
+  }
+  if (!Number.isInteger(categoryId) || categoryId <= 0) return { error: 'Choose a category.' };
+
+  const [[category]] = await query('SELECT id FROM categories WHERE id = ?', [categoryId]);
+  if (!category) return { error: 'Choose a valid category.' };
+
+  return {
+    values: {
+      name,
+      category_id: categoryId,
+      building,
+      floor: floor || null,
+      description: description || null,
+      capacity,
+      features: features || null,
+    },
+  };
+}
+
+app.post('/api/admin/resources', requireAdminApi, async (req, res) => {
+  try {
+    const { error, values } = await parseResourceInput(req.body);
+    if (error) return res.status(400).json({ ok: false, message: error });
+
+    const [result] = await query(
+      `INSERT INTO resources (name, category_id, building, floor, description, capacity, features)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [values.name, values.category_id, values.building, values.floor,
+        values.description, values.capacity, values.features]
+    );
+    res.status(201).json({ ok: true, id: result.insertId, message: 'Resource added.' });
+  } catch (error) {
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ ok: false, message: 'A resource with that name already exists.' });
+    }
+    console.error('Admin resource create error:', error);
+    res.status(500).json({ ok: false, message: 'Could not add the resource.' });
+  }
+});
+
+app.put('/api/admin/resources/:resourceId', requireAdminApi, async (req, res) => {
+  const resourceId = Number(req.params.resourceId);
+  if (!Number.isInteger(resourceId) || resourceId <= 0) {
+    return res.status(400).json({ ok: false, message: 'Choose a valid resource.' });
+  }
+
+  try {
+    const { error, values } = await parseResourceInput(req.body);
+    if (error) return res.status(400).json({ ok: false, message: error });
+
+    const [[existing]] = await query('SELECT category_id FROM resources WHERE id = ?', [resourceId]);
+    if (!existing) return res.status(404).json({ ok: false, message: 'Resource not found.' });
+
+    // Reports reference (resource_id, category_id), so the category is locked once reports exist.
+    if (Number(existing.category_id) !== values.category_id) {
+      const [[{ count }]] = await query('SELECT COUNT(*) AS count FROM reports WHERE resource_id = ?', [resourceId]);
+      if (Number(count) > 0) {
+        return res.status(409).json({
+          ok: false,
+          message: 'This resource already has reports, so its category cannot be changed.',
+        });
+      }
+    }
+
+    await query(
+      `UPDATE resources
+       SET name = ?, category_id = ?, building = ?, floor = ?, description = ?, capacity = ?, features = ?
+       WHERE id = ?`,
+      [values.name, values.category_id, values.building, values.floor,
+        values.description, values.capacity, values.features, resourceId]
+    );
+    res.json({ ok: true, message: 'Resource updated.' });
+  } catch (error) {
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ ok: false, message: 'A resource with that name already exists.' });
+    }
+    console.error('Admin resource update error:', error);
+    res.status(500).json({ ok: false, message: 'Could not update the resource.' });
+  }
+});
+
+app.patch('/api/admin/resources/:resourceId/active', requireAdminApi, async (req, res) => {
+  const resourceId = Number(req.params.resourceId);
+  const active = (req.body || {}).active;
+
+  if (!Number.isInteger(resourceId) || resourceId <= 0 || typeof active !== 'boolean') {
+    return res.status(400).json({ ok: false, message: 'Choose a valid resource.' });
+  }
+
+  try {
+    const [result] = await query('UPDATE resources SET is_active = ? WHERE id = ?', [active, resourceId]);
+    if (!result.affectedRows) {
+      return res.status(404).json({ ok: false, message: 'Resource not found.' });
+    }
+    res.json({ ok: true, message: active ? 'Resource activated.' : 'Resource deactivated.' });
+  } catch (error) {
+    console.error('Admin resource update error:', error);
+    res.status(500).json({ ok: false, message: 'Could not update the resource.' });
+  }
+});
+
 app.get('/', (req, res) => {
   if (req.session.user) {
     return res.redirect('/resources');

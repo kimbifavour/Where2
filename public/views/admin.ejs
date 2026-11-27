@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= title %> · Where 2</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="/css/resources.css">
+  <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <strong>Where 2</strong>
+    <button
+      id="navToggle"
+      class="nav-toggle"
+      type="button"
+      aria-controls="site-nav"
+      aria-expanded="false"
+    >
+      Menu
+    </button>
+  </header>
+  <div class="app">
+    <%- include('site-nav', { currentPage: 'admin' }) %>
+    <main id="main" class="main" tabindex="-1">
+      <div class="page-head">
+        <h1>Admin</h1>
+        <p>Signed in as <%= user.name %>. Manage who has admin access, moderate reports, and switch resources on or off.</p>
+      </div>
+
+      <div id="message" class="message" role="status" aria-live="polite"></div>
+
+      <section class="admin-stats" id="admin-stats" aria-label="Totals"></section>
+
+      <section class="admin-section" aria-labelledby="users-heading">
+        <h2 id="users-heading">Users</h2>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr><th scope="col">Name</th><th scope="col">Email</th><th scope="col">Role</th><th scope="col">Reports</th><th scope="col">Joined</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr>
+            </thead>
+            <tbody id="users-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="admin-section" aria-labelledby="reports-heading">
+        <h2 id="reports-heading">Reports</h2>
+        <p class="muted small">Hidden reports no longer appear to users or count toward resource status.</p>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr><th scope="col">Resource</th><th scope="col">Condition</th><th scope="col">Comment</th><th scope="col">By</th><th scope="col">Votes</th><th scope="col">Status</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr>
+            </thead>
+            <tbody id="reports-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="admin-section" aria-labelledby="resources-heading">
+        <h2 id="resources-heading">Resources</h2>
+        <p class="muted small">Deactivated resources are hidden from listings instead of being deleted.</p>
+
+        <form id="resource-form" class="admin-form" novalidate>
+          <h3 id="resource-form-title">Add a resource</h3>
+          <input type="hidden" name="id">
+          <div class="admin-form-grid">
+            <label>Name <input name="name" required maxlength="120"></label>
+            <label>Category <select name="category_id" required></select></label>
+            <label>Building <input name="building" required maxlength="100"></label>
+            <label>Floor <input name="floor" maxlength="30"></label>
+            <label>Capacity <input name="capacity" type="number" min="0" max="65535" step="1"></label>
+            <label>Features <input name="features" maxlength="255" placeholder="wifi, outlets, quiet zone"></label>
+            <label class="admin-form-wide">Description <textarea name="description" rows="3" maxlength="5000"></textarea></label>
+          </div>
+          <div class="admin-form-actions">
+            <button type="submit" class="admin-button primary" id="resource-submit">Add resource</button>
+            <button type="button" class="admin-button" id="resource-cancel" hidden>Cancel edit</button>
+          </div>
+        </form>
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr><th scope="col">Name</th><th scope="col">Category</th><th scope="col">Location</th><th scope="col">Status</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr>
+            </thead>
+            <tbody id="resources-body"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="/js/admin.js" type="module"></script>
+  <script src="/js/site-nav.js" defer></script>
+</body>
+</html>

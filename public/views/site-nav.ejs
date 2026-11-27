@@ -35,6 +35,15 @@
       </a>
     </li>
 
+    <% if (typeof user !== 'undefined' && user && user.role === 'admin') { %>
+    <li>
+      <a href="/admin"
+        <% if (currentPage === 'admin') { %>aria-current="page"<% } %>>
+        Admin
+      </a>
+    </li>
+    <% } %>
+
     <li><a href="/auth/logout">Log out</a></li>
   </ul>
 </nav>
